@@ -84,6 +84,7 @@ nav:
       - Debugging: guides/debugging.md
       - Cron / Systemd Setup: guides/cron-setup.md
       - Email Setup: guides/email-setup.md
+      - Pipeline CI: guides/pipeline-ci.md
   - Methods:
       - Processing Pipeline: methods_procedures.md
   - Reference:

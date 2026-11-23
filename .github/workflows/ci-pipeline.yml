@@ -1,0 +1,67 @@
+name: CI / pipeline
+
+# Runs the whole pipeline (raw DICOM -> every procedure) on a few real
+# sessions, on the lab server, in a scratch dir isolated from production.
+# See docs/guides/pipeline-ci.md for the one-time server setup.
+#
+# Runs after every merge to main, or by hand ("Run workflow", any branch).
+# Never on pull_request: this job executes code on the lab server, so it must
+# only ever run code a maintainer has merged or chosen to run.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run at a time. A newer merge waits for the current run instead of
+# cancelling it (GitHub keeps only the newest waiting run).
+concurrency:
+  group: ci-pipeline
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    # Forks have no lab runner; without this the job would queue forever there.
+    if: github.repository == 'Yaniv-Assaf-Lab/snbb_scheduler'
+    runs-on: [self-hosted, snbb-server]
+    timeout-minutes: 2880   # 48 h; the driver stops itself at 47 h
+    env:
+      # Repository variables (Settings -> Secrets and variables -> Actions -> Variables).
+      # Paths only; the session list itself stays on the server.
+      BASE_CONFIG: ${{ vars.SNBB_CI_BASE_CONFIG }}
+      SESSIONS_CSV: ${{ vars.SNBB_CI_SESSIONS_CSV }}
+      WORK_DIR: ${{ vars.SNBB_CI_WORK_DIR }}
+    steps:
+      - name: Check runner configuration
+        run: |
+          missing=0
+          for v in BASE_CONFIG SESSIONS_CSV WORK_DIR; do
+            if [ -z "${!v}" ]; then echo "::error::repository variable for $v is not set"; missing=1; fi
+          done
+          for f in "$BASE_CONFIG" "$SESSIONS_CSV"; do
+            [ -z "$f" ] || [ -r "$f" ] || { echo "::error::cannot read $f"; missing=1; }
+          done
+          command -v sbatch >/dev/null || { echo "::error::sbatch not found on the runner"; missing=1; }
+          exit $missing
+
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: uv sync --locked
+
+      - name: Run pipeline on test sessions
+        run: >
+          uv run --locked python ci/pipeline_test.py
+          --base-config "$BASE_CONFIG"
+          --sessions "$SESSIONS_CSV"
+          --work-dir "$WORK_DIR"
+
+      - name: Cancel leftover Slurm jobs
+        if: cancelled() || failure()
+        run: uv run --locked python ci/pipeline_test.py --cancel-jobs --work-dir "$WORK_DIR"
