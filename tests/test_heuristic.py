@@ -465,6 +465,51 @@ class TestFMRICurrent:
         assert k is not None
         assert "28-alv" in info[k]
 
+    # ── Task runs misnamed rfMRI_ (sessions 2021-11 to 2023-06) ───────────
+    # In those sessions the scanner protocol named the task series
+    # rfMRI_<Task>_AP instead of tfMRI_<Task>_AP. They are task runs and must
+    # convert exactly like their tfMRI_ counterparts.
+
+    @pytest.mark.parametrize("task", ["BJJ1", "BJJ2", "Climbing1", "Climbing2", "Music1", "Music2"])
+    @pytest.mark.parametrize("suffix,kind", [("", "bold"), ("_SBRef", "sbref")])
+    def test_rfmri_task_same_as_tfmri(self, heuristic, task, suffix, kind):
+        mis = heuristic.infotodict([_seq(f"rfMRI_{task}_AP{suffix}", series_id="1-mis")])
+        ok = heuristic.infotodict([_seq(f"tfMRI_{task}_AP{suffix}", series_id="1-mis")])
+        k = _find_key(mis, f"task-{task.lower()}_run-{{item:02d}}_{kind}")
+        assert k is not None
+        assert mis[k] == ["1-mis"]
+        assert mis == ok
+
+    def test_rfmri_session_converts_all_tasks_and_rest(self, heuristic):
+        """Series layout of a real affected session (names only, no IDs)."""
+        names = [
+            "localizer_3D_2 (9X5X5)", "SpinEchoFieldMap_AP", "SpinEchoFieldMap_PA",
+            "rsfMRI_AP_SBRef", "rsfMRI_AP", "t2_tirm_tra_dark-fluid_FLAIR",
+            "T1w_MPRAGE_RL", "T2w_SPC_RL",
+            "rfMRI_BJJ1_AP_SBRef", "rfMRI_BJJ1_AP",
+            "rfMRI_Climbing1_AP_SBRef", "rfMRI_Climbing1_AP",
+            "rfMRI_Music1_AP_SBRef", "rfMRI_Music1_AP",
+            "dMRI_MB4_185dirs_d15D45_AP_SBRef", "dMRI_MB4_185dirs_d15D45_AP",
+            "dMRI_MB4_6dirs_d15D45_PA_SBRef", "dMRI_MB4_6dirs_d15D45_PA",
+            "rfMRI_BJJ2_AP_SBRef", "rfMRI_BJJ2_AP",
+            "rfMRI_Climbing2_AP_SBRef", "rfMRI_Climbing2_AP",
+            "rfMRI_Music2_AP_SBRef", "rfMRI_Music2_AP",
+        ]
+        info = heuristic.infotodict(
+            [_seq(n, series_id=f"{i}-{n}") for i, n in enumerate(names, start=1)]
+        )
+        for task in ("rest", "bjj1", "bjj2", "climbing1", "climbing2", "music1", "music2"):
+            for kind in ("bold", "sbref"):
+                k = _find_key(info, f"task-{task}_run-{{item:02d}}_{kind}")
+                assert k is not None and len(info[k]) == 1, (task, kind)
+        # fieldmaps still go to fmap, not to a "fieldmap" task
+        assert _find_key(info, "task-spinechofieldmap") is None
+
+    def test_rfmri_without_task_is_not_rest(self, heuristic):
+        """Only rsfMRI_AP means rest; a bare rfMRI_AP stays unmatched."""
+        info = heuristic.infotodict([_seq("rfMRI_AP", series_id="5-x")])
+        assert all("5-x" not in v for v in info.values())
+
 
 # ===========================================================================
 # Tests: fMRI — CMRR era

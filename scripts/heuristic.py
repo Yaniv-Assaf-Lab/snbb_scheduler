@@ -18,6 +18,7 @@ Current (2023+) — Siemens
     DWI : dMRI_MB4_185dirs_d15D45_AP, dMRI_MB4_6dirs_d15D45_PA
     fmap: SpinEchoFieldMap_AP/PA, SE_(rs|t)fMRI_FieldMap_AP/PA
     fMRI: (t|rs)fMRI_<TaskName>_AP — dynamically extracted
+          (rfMRI_<TaskName>_AP, misnamed in 2021-11 to 2023-06, treated as tfMRI)
 
 Task fMRI is handled dynamically — any protocol matching the naming
 pattern gets its task name extracted and mapped to a BIDS label
@@ -60,9 +61,10 @@ def _is_sbref(desc: str) -> bool:
 
 
 # Current-era fMRI regex: matches (t|rs)fMRI_<Task>_AP or rsfMRI_AP,
-# with optional _SBRef suffix.
+# with optional _SBRef suffix. Also rfMRI_<Task>_AP: task runs misnamed
+# rfMRI_ in sessions 2021-11 to 2023-06 (BJJ, Climbing, Music).
 _FMRI_RE = re.compile(
-    r"(?:t|rs)fMRI_(?:(?P<task>.+?)_)?AP(?:_SBRef)?$"
+    r"(?:t|rs?)fMRI_(?:(?P<task>.+?)_)?AP(?:_SBRef)?$"
 )
 
 
