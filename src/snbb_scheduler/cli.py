@@ -111,6 +111,8 @@ def run(
 
     cache: dict = {}
     force_procedures = [procedure] if (force and procedure) else None
+    # Needed by build_manifest (accept_partial_after_days timing).
+    state = load_state(config)
 
     with CompletionCache(
         config.resolved_cache_path(), ttl_hours=config.completion_cache_ttl_hours
@@ -118,11 +120,9 @@ def run(
         manifest = build_manifest(
             sessions, config,
             force=force, force_procedures=force_procedures,
-            cache=cache, completion_cache=cc,
+            cache=cache, completion_cache=cc, state=state,
         )
         click.echo(f"  {len(manifest)} task(s) need processing.")
-
-        state = load_state(config)
 
         if not skip_monitor and not state.empty:
             try:
@@ -165,7 +165,7 @@ def show_manifest(ctx: click.Context) -> None:
 
     sessions = discover_sessions(config)
     cache: dict = {}
-    manifest = build_manifest(sessions, config, cache=cache)
+    manifest = build_manifest(sessions, config, cache=cache, state=load_state(config))
 
     if manifest.empty:
         click.echo("No tasks pending.")

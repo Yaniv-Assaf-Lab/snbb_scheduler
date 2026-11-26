@@ -33,6 +33,7 @@ def build_manifest(
     force_procedures: list[str] | None = None,
     cache: dict | None = None,
     completion_cache: CompletionCache | None = None,
+    state: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Evaluate rules against all sessions and return a task manifest.
 
@@ -48,6 +49,9 @@ def build_manifest(
 
     When *completion_cache* is provided, entries marked complete in the
     SQLite cache are skipped without any filesystem I/O (unless *force*).
+
+    *state* is passed to :func:`~snbb_scheduler.rules.build_rules`
+    (timing of ``accept_partial_after_days``).
     """
     if sessions.empty:
         return pd.DataFrame(columns=["subject", "session", "procedure", "dicom_path", "priority"])
@@ -58,6 +62,7 @@ def build_manifest(
         force=force,
         force_procedures=force_procedures,
         cache=cache,
+        state=state,
     )
     priority = {proc.name: i for i, proc in enumerate(config.procedures)}
     subject_scoped = {proc.name for proc in config.procedures if proc.scope == "subject"}
@@ -83,11 +88,14 @@ def build_manifest(
 
             # Fast path: skip rule evaluation entirely when any dependency is
             # already known-incomplete from the cache (zero new I/O).
+            # Skipped for deps that can be satisfied while incomplete.
             if cache:
                 proc = config.get_procedure(proc_name)
                 skip = False
                 for dep_name in proc.depends_on:
                     dep_proc = config.get_procedure(dep_name)
+                    if dep_proc.accept_partial_after_days is not None or dep_proc.requires:
+                        continue
                     dep_path = session_row[f"{dep_name}_path"]
                     dep_kw = _completion_kwargs(dep_proc, session_row, config)
                     key = _cache_key(dep_proc.name, dep_path, dep_kw)

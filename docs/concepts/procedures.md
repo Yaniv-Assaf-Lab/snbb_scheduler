@@ -25,6 +25,8 @@ class Procedure:
 | `scope` | `"session"` or `"subject"` | Whether one job is run per session or one per subject |
 | `depends_on` | `list[str]` | Names of procedures that must be complete before this one runs |
 | `completion_marker` | `str`, `list[str]`, or `None` | How to decide the output is complete — see [Completion Markers](../configuration/completion-markers.md) |
+| `requires` | `list[str]` | Input globs in the BIDS session dir; not submitted where one has no match (subject scope: in no session) |
+| `accept_partial_after_days` | `int` or `None` | Days after first submission when incomplete, non-empty output stops blocking dependents; it keeps being resubmitted |
 
 ---
 

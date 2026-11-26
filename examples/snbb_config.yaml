@@ -55,6 +55,9 @@ procedures:
     script: /home/galkepler/Projects/snbb_scheduler/scripts/snbb_run_bids.sh
     scope: session
     depends_on: []
+    # Partial sessions stay incomplete and are reconverted every run; 30 days
+    # after the first submission, downstream steps use what is there.
+    accept_partial_after_days: 30
     completion_marker:
       - "anat/*_T1w.nii.gz"
       - "dwi/*dir-AP*_dwi.nii.gz"
@@ -70,6 +73,7 @@ procedures:
     script: /home/galkepler/Projects/snbb_scheduler/scripts/snbb_run_bids_post.sh
     scope: session
     depends_on: [bids]
+    requires: ["dwi/*dir-PA*_dwi.nii.gz"]
     completion_marker:
       - "fmap/*acq-dwi_dir-PA*epi.nii.gz"
 
@@ -78,6 +82,7 @@ procedures:
     script: /home/galkepler/Projects/snbb_scheduler/scripts/snbb_run_defacing.sh
     scope: session
     depends_on: [bids]
+    requires: ["anat/*_T1w.nii.gz"]
     completion_marker:
       - "anat/*acq-defaced*T1w.nii.gz"
       - "anat/*acq-defaced*T2w.nii.gz"
@@ -89,6 +94,7 @@ procedures:
     script: /home/galkepler/Projects/snbb_scheduler/scripts/snbb_run_qsiprep.sh
     scope: session
     depends_on: [post-bids]
+    requires: ["dwi/*dir-AP*_dwi.nii.gz", "dwi/*dir-PA*_dwi.nii.gz"]
     completion_marker:
       - "*.html"
       - "dwi/*desc-preproc_dwi.nii.gz"
@@ -107,6 +113,7 @@ procedures:
     script: /home/galkepler/Projects/snbb_scheduler/scripts/snbb_run_cat.sh
     scope: session
     depends_on: [bids]
+    requires: ["anat/*_T1w.nii.gz"]
     completion_marker:
       - "anat/report/cat_*.xml"
       - "anat/label/catROI_*.xml"
@@ -124,6 +131,8 @@ procedures:
     script: /home/galkepler/Projects/snbb_scheduler/scripts/snbb_run_freesurfer.sh
     scope: subject
     depends_on: [bids]
+    # Subject-scoped: at least one session must have a T1w.
+    requires: ["anat/*_T1w.nii.gz"]
     completion_marker: "scripts/recon-all.done"
 
   # DWI tractography reconstruction (session-scoped: requires qsiprep + freesurfer)

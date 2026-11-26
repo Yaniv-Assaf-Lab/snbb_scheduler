@@ -86,6 +86,17 @@ state = state[~mask].reset_index(drop=True)
 state.to_parquet(state_path, index=False)
 ```
 
+### "Some DICOMs of a session arrived late"
+
+No force needed. A session missing any `bids` marker file stays incomplete and is
+reconverted every run. With `accept_partial_after_days: 30` on `bids`, downstream
+steps start 30 days after the first `bids` submission, using what was converted.
+Steps with `requires` run only once their input files exist, so a late modality
+(e.g. DWI) is processed when it arrives.
+
+Not automatic: a step that already ran is not rerun when its input changes (e.g. a
+new T1w after CAT12 ran) — force it. FreeSurfer detects a new T1w session itself.
+
 ### "All jobs vanished from Slurm — state file still shows pending/running"
 
 Run `monitor` first — it will use filesystem reconciliation to mark complete jobs:

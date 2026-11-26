@@ -21,6 +21,13 @@ class Procedure:
     completion_marker: str | list[str] | None = None
     # Slurm nice value (higher = lower priority). None = omit --nice from sbatch.
     slurm_nice: int | None = None
+    # Input globs relative to the BIDS session dir, e.g. ["anat/*_T1w.nii.gz"].
+    # Not submitted where a glob has no match (subject scope: in no session).
+    requires: list[str] = field(default_factory=list)
+    # Days after its first submission when an incomplete, non-empty output stops
+    # blocking dependents. It stays incomplete and keeps being resubmitted, so
+    # late data is still picked up. None = off.
+    accept_partial_after_days: int | None = None
     # completion_marker semantics:
     #   None          → output directory must exist (non-empty)
     #   "path/file"   → that specific file must exist inside the output dir
@@ -56,6 +63,7 @@ DEFAULT_PROCEDURES: list[Procedure] = [
         scope="session",
         depends_on=["bids"],
         slurm_nice=10,
+        requires=["dwi/*dir-PA*_dwi.nii.gz"],
         # Completion marker: the derived DWI fmap NIfTI written by bids_post.
         completion_marker="fmap/*acq-dwi*_epi.nii.gz",
     ),
@@ -66,6 +74,7 @@ DEFAULT_PROCEDURES: list[Procedure] = [
         scope="session",
         depends_on=["bids_post"],
         slurm_nice=10,
+        requires=["anat/*_T1w.nii.gz"],
         completion_marker="anat/*acq-defaced*_T1w.nii.gz",
     ),
     Procedure(
@@ -75,6 +84,7 @@ DEFAULT_PROCEDURES: list[Procedure] = [
         scope="session",
         depends_on=["bids_post"],
         slurm_nice=20,
+        requires=["dwi/*dir-AP*_dwi.nii.gz", "dwi/*dir-PA*_dwi.nii.gz"],
         completion_marker=[
             "*.html",
             "dwi/*desc-preproc_dwi.nii.gz",
@@ -98,6 +108,7 @@ DEFAULT_PROCEDURES: list[Procedure] = [
         scope="session",
         depends_on=["bids"],
         slurm_nice=20,
+        requires=["anat/*_T1w.nii.gz"],
         completion_marker=[
             "anat/report/cat_*.xml",  # core segmentation
             "anat/label/catROI_*.xml",  # volume ROI atlases
@@ -122,6 +133,8 @@ DEFAULT_PROCEDURES: list[Procedure] = [
         scope="subject",
         depends_on=["bids_post"],
         slurm_nice=20,
+        # Subject-scoped: satisfied when at least one session has a T1w.
+        requires=["anat/*_T1w.nii.gz"],
         completion_marker=None,  # specialised check: freesurfer
     ),
     # ─────────────────────────────────────────────────────────────────────────
